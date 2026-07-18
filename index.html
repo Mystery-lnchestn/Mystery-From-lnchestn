@@ -2,15 +2,28 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>我的第一个小游戏</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>秘境小游戏</title>
   <style>
-    body { text-align: center; font-family: sans-serif; }
-    canvas { border: 2px solid #333; }
+    /* 去掉所有默认边距 */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;          /* 纯黑背景 */
+      overflow: hidden;           /* 禁止滚动条 */
+      touch-action: none;         /* 禁止触屏滚动页面 */
+    }
+
+    canvas {
+      display: block;             /* 去掉 canvas 底部的缝隙 */
+      background: #000;          /* canvas 也设为黑色 */
+    }
   </style>
 </head>
 <body>
-  <h1>🎮 我的小游戏</h1>
-  <canvas id="game" width="400" height="300"></canvas>
+  <!-- canvas 宽高由 JS 动态设为全屏 -->
+  <canvas id="game"></canvas>
+
   <script src="script.js"></script>
 </body>
 </html>
