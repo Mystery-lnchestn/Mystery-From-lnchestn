@@ -1,48 +1,47 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// 1. 创建图片对象
+// 【关键】让画布严格铺满整个iPad屏幕
+function resizeCanvas() {
+  // iPad Safari专属：用视觉视口尺寸，避免刘海/工具栏干扰
+  canvas.width = window.visualViewport?.width || window.innerWidth;
+  canvas.height = window.visualViewport?.height || window.innerHeight;
+}
+resizeCanvas();
+// 转屏/缩放时自动重新铺满
+window.addEventListener('resize', resizeCanvas);
+window.visualViewport?.addEventListener('resize', resizeCanvas);
+
+// 加载你的滑稽图
 const img = new Image();
-img.src = 'HAPPY.png'; // 你的文件名是 HAPPY.png，这里必须一模一样（大小写敏感）
+img.src = 'HAPPY.png';
 
-// 2. 初始位置和速度
-let x = 50;
-let y = 50;
-let dx = 2;
-let dy = 2;
-
-// 3. 关键：设置显示尺寸（原图太大了，我们要缩小）
-// 你可以随意调整这两个数字，比如 80, 80 或者 120, 120
+// 速度（iPad上3-4刚好，不会太快晃眼）
+let dx = 3;
+let dy = 3;
+// 表情显示大小（你之前设的100，刚好）
 const displayWidth = 100;
 const displayHeight = 100;
 
-// 4. 等图片加载完毕再开始游戏（非常重要！）
+// 【关键】等图片加载完、画布也铺满后，再把表情放在屏幕正中心
 img.onload = function () {
-  console.log('图片加载成功！开始弹跳～');
+  // 初始位置=屏幕中心，不会偏到左上角
+  x = canvas.width / 2 - displayWidth / 2;
+  y = canvas.height / 2 - displayHeight / 2;
   gameLoop();
 };
 
-// 如果图片加载失败，报错提示（方便排查问题）
-img.onerror = function () {
-  console.error('图片加载失败！检查文件名是否是 HAPPY.png');
-};
-
 function draw() {
-  // 清空画布
+  // 清屏（黑背景）
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // 5. 画图片（使用缩小后的尺寸）
+  // 画表情包
   ctx.drawImage(img, x, y, displayWidth, displayHeight);
 
-  // 6. 碰壁反弹逻辑（要用显示尺寸来判断边缘）
-  if (x + displayWidth > canvas.width || x < 0) {
-    dx = -dx;
-  }
-  if (y + displayHeight > canvas.height || y < 0) {
-    dy = -dy;
-  }
+  // 【核心修复】用「当前全屏画布的尺寸」判断碰壁，不是固定值！
+  if (x + displayWidth > canvas.width || x < 0) dx = -dx;
+  if (y + displayHeight > canvas.height || y < 0) dy = -dy;
 
-  // 7. 更新位置
+  // 更新位置
   x += dx;
   y += dy;
 }
