@@ -10,7 +10,7 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 window.visualViewport?.addEventListener('resize', resizeCanvas);
 
-// 加载两张图
+// 加载图片
 const happyImg = new Image();
 happyImg.src = 'HAPPY.png';
 const angryImg = new Image();
@@ -18,85 +18,124 @@ angryImg.src = 'ANGRY.png';
 
 const displayWidth = 100;
 const displayHeight = 100;
+const radius = displayWidth / 2; // 球的半径（用于碰撞检测）
 
-// 等两张图都加载完
+// 等图片加载完
 let imagesLoaded = 0;
 function checkAllLoaded() {
   imagesLoaded++;
-  if (imagesLoaded === 2) {
-    gameLoop();
-  }
+  if (imagesLoaded === 2) gameLoop();
 }
 happyImg.onload = checkAllLoaded;
 angryImg.onload = checkAllLoaded;
 
-// ========== 核心：小球数组 ==========
+// 小球数组
 let balls = [];
 
-// 初始先放一个球在屏幕中心
+// 初始一个球
 balls.push({
-  x: canvas.width / 2 - displayWidth / 2,
-  y: canvas.height / 2 - displayHeight / 2,
+  x: canvas.width / 2,
+  y: canvas.height / 2,
   dx: 3,
   dy: 3,
-  img: happyImg  // 初始用笑脸
+  img: happyImg
 });
 
-// ========== 点屏幕 → 生成新球 ==========
-function spawnBall() {
-  // 随机选一张图
-  const randomImg = Math.random() > 0.5 ? happyImg : angryImg;
+// ===== 核心：手指位置生成新球 =====
+function spawnBallAt(x, y) {
+  // 限制数量，iPad 性能保护
+  if (balls.length >= 25) return;
 
-  // 随机方向（速度 2~5 之间，方向随机）
-  const angle = Math.random() * Math.PI * 2;       // 0~360 度随机角度
-  const speed = 2 + Math.random() * 3;              // 速度 2~5
+  const randomImg = Math.random() > 0.5 ? happyImg : angryImg;
+  const angle = Math.random() * Math.PI * 2;
+  const speed = 2 + Math.random() * 3;
   const dx = Math.cos(angle) * speed;
   const dy = Math.sin(angle) * speed;
 
-  // 随机初始位置（别太靠边，也别和已有球重叠太多）
-  const x = Math.random() * (canvas.width - displayWidth);
-  const y = Math.random() * (canvas.height - displayHeight);
-
-  balls.push({ x, y, dx, dy, img: randomImg });
+  balls.push({
+    x: x - displayWidth / 2,  // 让球心对准手指
+    y: y - displayHeight / 2,
+    dx,
+    dy,
+    img: randomImg
+  });
 }
 
-// 监听点击（电脑 + iPad 通用）
-canvas.addEventListener('click', spawnBall);
-canvas.addEventListener('touchend', (e) => {
+// 触摸事件（修正坐标偏移）
+canvas.addEventListener('touchstart', (e) => {
   e.preventDefault();
-  spawnBall();
+  const rect = canvas.getBoundingClientRect(); // 获取 canvas 偏移
+  for (let touch of e.changedTouches) {
+    spawnBallAt(
+      touch.clientX - rect.left,
+      touch.clientY - rect.top
+    );
+  }
 });
 
-// ========== 游戏循环 ==========
+// 鼠标点击（调试用）
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  spawnBallAt(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+// ===== 核心：球与球碰撞检测 =====
+function handleBallCollision(b1, b2) {
+  const dx = b2.x - b1.x;
+  const dy = b2.y - b1.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // 如果撞上了
+  if (distance < radius * 2) {
+    // 1. 交换速度（简易弹性碰撞）
+    [b1.dx, b2.dx] = [b2.dx, b1.dx];
+    [b1.dy, b2.dy] = [b2.dy, b1.dy];
+
+    // 2. 稍微推开一点，防止粘连
+    const overlap = radius * 2 - distance;
+    const separation = overlap / 2;
+    const sepX = (dx / distance) * separation;
+    const sepY = (dy / distance) * separation;
+    b1.x -= sepX;
+    b1.y -= sepY;
+    b2.x += sepX;
+    b2.y += sepY;
+
+    // 3. 撞完换脸（可选，很魔性）
+    [b1.img, b2.img] = [b2.img, b1.img];
+  }
+}
+
+// ===== 游戏循环 =====
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 遍历所有小球
-  for (let i = 0; i < balls.length; i++) {
-    const b = balls[i];
-
-    // 画当前球
-    ctx.drawImage(b.img, b.x, b.y, displayWidth, displayHeight);
-
-    // 碰壁检测
-    let hitWall = false;
-    if (b.x + displayWidth > canvas.width || b.x < 0) {
-      b.dx = -b.dx;
-      hitWall = true;
-    }
-    if (b.y + displayHeight > canvas.height || b.y < 0) {
-      b.dy = -b.dy;
-      hitWall = true;
-    }
-
-    // 撞墙换图
-    if (hitWall) {
-      b.img = (b.img === happyImg) ? angryImg : happyImg;
-    }
-
-    // 更新位置
+  // 更新位置 + 碰壁
+  for (let b of balls) {
     b.x += b.dx;
     b.y += b.dy;
+
+    // 碰壁反弹
+    if (b.x < 0 || b.x + displayWidth > canvas.width) {
+      b.dx = -b.dx;
+      b.img = (b.img === happyImg) ? angryImg : happyImg;
+    }
+    if (b.y < 0 || b.y + displayHeight > canvas.height) {
+      b.dy = -b.dy;
+      b.img = (b.img === happyImg) ? angryImg : happyImg;
+    }
+  }
+
+  // 球与球碰撞（双重循环）
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      handleBallCollision(balls[i], balls[j]);
+    }
+  }
+
+  // 绘制所有球
+  for (let b of balls) {
+    ctx.drawImage(b.img, b.x, b.y, displayWidth, displayHeight);
   }
 }
 
